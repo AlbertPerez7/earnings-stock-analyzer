@@ -47,8 +47,7 @@ earnings-stock-analyzer/
 ├── scripts/
 │   ├── run_analysis.py          # Main script for earnings reaction analysis
 │   ├── run_momentum.py          # Main script for momentum analysis
-│   ├── complete_run.py          # (legacy) Old unified script
-│   ├── api.py                   # (legacy) API-only analysis
+│   
 ├── data/                        # Input datasets (CSV)
 ├── output/                      # Generated results (CSVs, plots)
 ├── README.md
