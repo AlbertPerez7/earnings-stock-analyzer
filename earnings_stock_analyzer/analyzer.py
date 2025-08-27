@@ -1,73 +1,76 @@
-### earnings_stock_analyzer/analyzer.py
-import pandas as pd
+from typing import List, Dict
 
-def analyze_absolute_change(df, earnings_dates):
-    abs_c2o, abs_c2c, abs_o2c = [], [], []
-    pos_c2o, neg_c2o = [], []
-    pos_c2c, neg_c2c = [], []
-    pos_o2c, neg_o2c = [], []
-    success_count = 0
-    success_count_8 = 0
-    total_valid = 0
-    positive_c2o_days = 0
-    negative_c2o_days = 0
-    trend_continuation_count = 0
-    trend_continuation_gains = []
-    results_plot = []
+def summarize_reactions(reactions: List[Dict]) -> Dict:
+    """
+    Summarize averages. Assumes reactions already contain % values
+    (from the library stocks_earnings_dates).
+    """
+    if not reactions:
+        return {}
 
-    for fecha in earnings_dates:
-        fila = df[df['Date'] == fecha]
-        if not fila.empty:
-            close = fila['Close'].values[0]
-            next_open = fila['Next_Open'].values[0]
-            next_close = fila['Next_Close'].values[0]
+    filtered = [
+        r for r in reactions
+        if r.get("close_to_open_pct") is not None
+        and r.get("close_to_close_pct") is not None
+        and r.get("open_to_close_pct") is not None
+    ]
 
-            if pd.notna(next_open) and pd.notna(next_close):
-                c2o = (next_open - close) / close * 100
-                c2c = (next_close - close) / close * 100
-                o2c = (next_close - next_open) / next_open * 100
+    if not filtered:
+        return {
+            "avg_abs_close_to_open": 0,
+            "avg_abs_close_to_close": 0,
+            "avg_abs_open_to_close": 0,
+            "positive_days": 0,
+            "negative_days": 0,
+            "total_days": 0,
+            "positive_pct": 0,
+            "negative_pct": 0,
+        }
 
-                abs_c2o.append(abs(c2o))
-                abs_c2c.append(abs(c2c))
-                abs_o2c.append(abs(o2c))
-
-                results_plot.append({'Date': fecha, 'C2O': c2o, 'C2C': c2c, 'O2C': o2c})
-
-                if c2o > 0:
-                    pos_c2o.append(c2o)
-                    positive_c2o_days += 1
-                elif c2o < 0:
-                    neg_c2o.append(c2o)
-                    negative_c2o_days += 1
-
-                pos_c2c.append(c2c) if c2c >= 0 else neg_c2c.append(c2c)
-                pos_o2c.append(o2c) if o2c >= 0 else neg_o2c.append(o2c)
-
-                if (c2o > 0 and c2c > c2o) or (c2o < 0 and c2c < c2o):
-                    trend_continuation_count += 1
-                    trend_continuation_gains.append(c2c - c2o)
-
-                total_valid += 1
-                if abs(c2o) >= 10:
-                    success_count += 1
-                if abs(c2o) >= 6:
-                    success_count_8 += 1
-
-                print(f"Earnings Date: {fecha.date()}, Close→Open: {c2o:+.2f}%, Close→Close: {c2c:+.2f}%, Open→Close: {o2c:+.2f}%")
-        else:
-            print(f"No data for earnings date {fecha.date()}.")
-
-    def avg(lst): return sum(lst) / len(lst) if lst else 0
-
-    return {
-        "avg_abs": (avg(abs_c2o), avg(abs_c2c), avg(abs_o2c)),
-        "avg_pos": (avg(pos_c2o), avg(pos_c2c), avg(pos_o2c)),
-        "avg_neg": (avg(neg_c2o), avg(neg_c2c), avg(neg_o2c)),
-        "success_rate": (success_count / total_valid * 100) if total_valid else 0,
-        "success_rate_8": (success_count_8 / total_valid * 100) if total_valid else 0,
-        "pos_pct": (positive_c2o_days / total_valid * 100) if total_valid else 0,
-        "neg_pct": (negative_c2o_days / total_valid * 100) if total_valid else 0,
-        "trend_continuation_pct": (trend_continuation_count / total_valid * 100) if total_valid else 0,
-        "avg_trend_gain": avg(trend_continuation_gains),
-        "df_plot": pd.DataFrame(results_plot)
+    summary = {
+        "avg_abs_close_to_open": 0.0,
+        "avg_abs_close_to_close": 0.0,
+        "avg_abs_open_to_close": 0.0,
+        "positive_days": 0,
+        "negative_days": 0,
+        "total_days": 0,
     }
+
+    pos_c2o = pos_c2c = pos_o2c = 0.0
+    neg_c2o = neg_c2c = neg_o2c = 0.0
+
+    for r in filtered:
+        c2o = r["close_to_open_pct"]
+        c2c = r["close_to_close_pct"]
+        o2c = r["open_to_close_pct"]
+
+        summary["avg_abs_close_to_open"] += abs(c2o)
+        summary["avg_abs_close_to_close"] += abs(c2c)
+        summary["avg_abs_open_to_close"] += abs(o2c)
+        summary["total_days"] += 1
+
+        if c2o > 0:
+            summary["positive_days"] += 1
+            pos_c2o += c2o; pos_c2c += c2c; pos_o2c += o2c
+        elif c2o < 0:
+            summary["negative_days"] += 1
+            neg_c2o += c2o; neg_c2c += c2c; neg_o2c += o2c
+
+    td = summary["total_days"]
+    for k in ["avg_abs_close_to_open", "avg_abs_close_to_close", "avg_abs_open_to_close"]:
+        summary[k] = round(summary[k] / td, 2)
+
+    summary["positive_pct"] = round((summary["positive_days"] / td) * 100, 2) if td else 0
+    summary["negative_pct"] = round((summary["negative_days"] / td) * 100, 2) if td else 0
+
+    if summary["positive_days"]:
+        summary["avg_pos_close_to_open"] = round(pos_c2o / summary["positive_days"], 2)
+        summary["avg_pos_close_to_close"] = round(pos_c2c / summary["positive_days"], 2)
+        summary["avg_pos_open_to_close"] = round(pos_o2c / summary["positive_days"], 2)
+
+    if summary["negative_days"]:
+        summary["avg_neg_close_to_open"] = round(neg_c2o / summary["negative_days"], 2)
+        summary["avg_neg_close_to_close"] = round(neg_c2c / summary["negative_days"], 2)
+        summary["avg_neg_open_to_close"] = round(neg_o2c / summary["negative_days"], 2)
+
+    return summary

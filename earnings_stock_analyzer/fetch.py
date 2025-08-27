@@ -1,64 +1,68 @@
+from typing import List, Dict
 import requests
 import pandas as pd
 import yfinance as yf
 from datetime import datetime
+from stocks_earnings_dates import get_earnings_price_reactions
 
-def fetch_stock_data(ticker):
+API_KEY = "YOUR_API_KEY"
+
+def get_earnings_data(ticker: str, source: str = "library") -> List[Dict]:
     """
-    Downloads historical stock data from Yahoo Finance for the given ticker.
-
-    Args:
-        ticker (str): Stock ticker symbol (e.g., "AAPL").
-
-    Returns:
-        pd.DataFrame: DataFrame with historical stock data and derived columns.
+    Get earnings data either from the local library or from Alpha Vantage API.
     """
-    print(f"Fetching stock data for {ticker.upper()}...")
-    start_date = '1700-01-01'
-    end_date = datetime.now().strftime('%Y-%m-%d')
+    if source == "library":
+        return get_earnings_price_reactions(ticker)
 
-    data = yf.Ticker(ticker).history(start=start_date, end=end_date)
-    if data.empty:
-        raise ValueError("No stock data found.")
+    elif source == "api":
+        url = f"https://www.alphavantage.co/query?function=EARNINGS&symbol={ticker}&apikey={API_KEY}"
+        resp = requests.get(url).json()
+        if "quarterlyEarnings" not in resp:
+            return []
 
-    data['Percent Change'] = data['Close'].pct_change() * 100
-    data['Next_Open'] = data['Open'].shift(-1)
-    data['Next_Close'] = data['Close'].shift(-1)
-    data.reset_index(inplace=True)
-    data['Date'] = pd.to_datetime(data['Date'], utc=True).dt.tz_convert(None).dt.normalize()
-    data.sort_values(by='Date', inplace=True)
+        earnings_dates = pd.to_datetime(
+            [d["reportedDate"] for d in resp["quarterlyEarnings"]]
+        )
 
-    return data
+        # Filtrar mínim 1 dia vell
+        today = datetime.now().date()
+        earnings_dates = [
+            d.normalize() for d in earnings_dates if (today - d.date()).days >= 1
+        ]
 
+        if not earnings_dates:
+            return []
 
-def fetch_earnings_dates(ticker, api_key, min_age_days=120):
-    """
-    Fetches historical earnings dates from Alpha Vantage.
+        # Ara cal obtenir preus de Yahoo per calcular % com fa la llibreria
+        data = yf.Ticker(ticker).history(
+            start=min(earnings_dates) - pd.Timedelta(days=2),
+            end=max(earnings_dates) + pd.Timedelta(days=3),
+        )
+        if data.empty:
+            return []
 
-    Args:
-        ticker (str): Stock ticker symbol.
-        api_key (str): Alpha Vantage API key.
-        min_age_days (int): Minimum number of days old the earnings should be.
+        data.index = data.index.tz_localize(None)
+        data["Next_Open"] = data["Open"].shift(-1)
+        data["Next_Close"] = data["Close"].shift(-1)
+        data.reset_index(inplace=True)
+        data["Date"] = pd.to_datetime(data["Date"]).dt.normalize()
 
-    Returns:
-        list of pd.Timestamp: List of earnings dates that are old enough.
-    """
-    print("Fetching earnings data...")
-    earnings_url = f'https://www.alphavantage.co/query?function=EARNINGS&symbol={ticker}&apikey={api_key}'
-    response = requests.get(earnings_url)
-    earnings_data = response.json()
+        results = []
+        for date in earnings_dates:
+            row = data[data["Date"] == date]
+            if not row.empty:
+                close = row["Close"].values[0]
+                next_open = row["Next_Open"].values[0]
+                next_close = row["Next_Close"].values[0]
+                if pd.notna(next_open) and pd.notna(next_close):
+                    results.append({
+                        "date": date.date().isoformat(),
+                        "close_to_open_pct": round((next_open - close) / close * 100, 2),
+                        "close_to_close_pct": round((next_close - close) / close * 100, 2),
+                        "open_to_close_pct": round((next_close - next_open) / next_open * 100, 2)
+                    })
 
-    if 'quarterlyEarnings' not in earnings_data:
-        raise ValueError("No earnings data found.")
+        return results
 
-    earnings_df = pd.DataFrame(earnings_data['quarterlyEarnings'])
-    earnings_df['reportedDate'] = pd.to_datetime(earnings_df['reportedDate'])
-    today = datetime.now().date()
-
-    earnings_dates = [
-        d.normalize() for d in earnings_df['reportedDate']
-        if (today - d.date()).days >= min_age_days
-    ]
-
-    print("Earnings data downloaded successfully.")
-    return earnings_dates
+    else:
+        raise ValueError(f"Unknown source: {source}")

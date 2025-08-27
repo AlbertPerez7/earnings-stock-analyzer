@@ -1,82 +1,58 @@
-# earnings_stock_analyzer/momentum.py
+from typing import Dict
+from earnings_stock_analyzer.fetch import get_earnings_data  # ✅ use unified fetch
 
-import requests
-import pandas as pd
-import yfinance as yf
-from datetime import datetime
+def analyze_momentum(ticker: str, source: str = "library") -> Dict:
+    """
+    Analitza el momentum després d'earnings.
+    Pot utilitzar 'library' (SQLite/yfinance) o 'api' (Alpha Vantage).
+    """
 
-API_KEY = "Q3KR92l9T0mhIOXwHC40P7YLlQpxWhad"
+    # Get earnings reactions from chosen source
+    reactions = get_earnings_data(ticker, source=source)
+    if not reactions:
+        return {}
 
-def fetch_stock_data(ticker):
-    stock_data = yf.Ticker(ticker).history(start="1990-01-01", end=datetime.today().strftime('%Y-%m-%d'))
-    if stock_data.empty:
-        return None
-    stock_data.reset_index(inplace=True)
-    stock_data["Date"] = pd.to_datetime(stock_data["Date"]).dt.tz_localize(None).dt.normalize()
-    return stock_data
+    total = len(reactions)
+    pos_days = 0
+    neg_days = 0
+    pos_momentum = 0
+    neg_momentum = 0
+    total_momentum = 0
 
-def fetch_earnings_dates(ticker):
-    url = f"https://financialmodelingprep.com/api/v3/earnings-surprises/{ticker}?limit=1000&apikey={API_KEY}"
-    response = requests.get(url)
-    earnings_json = response.json()
-    if not isinstance(earnings_json, list) or not earnings_json:
-        return []
-    earnings_df = pd.DataFrame(earnings_json)
-    earnings_df['reportedDate'] = pd.to_datetime(earnings_df['date']).dt.normalize()
-    return earnings_df['reportedDate'].tolist()
+    momentum_dates_total = []
+    momentum_dates_pos = []
+    momentum_dates_neg = []
 
-def analyze_momentum(ticker):
-    try:
-        stock_data = fetch_stock_data(ticker)
-        if stock_data is None:
-            return None
+    for r in reactions:
+        c2o = r["close_to_open_pct"]
+        c2c = r["close_to_close_pct"]
+        o2c = r["open_to_close_pct"]
+        date = r["date"]
 
-        earnings_dates = fetch_earnings_dates(ticker)
-        if not earnings_dates:
-            return None
+        if c2o > 0:  # dia positiu
+            pos_days += 1
+            if o2c > 0:  # momentum positiu
+                pos_momentum += 1
+                total_momentum += 1
+                entry = {"date": date, "c2o": c2o, "c2c": c2c, "o2c": o2c}
+                momentum_dates_total.append(entry)
+                momentum_dates_pos.append(entry)
 
-        total_earnings = 0
-        total_momentum = 0
-        pos_days = 0
-        pos_momentum = 0
-        neg_days = 0
-        neg_momentum = 0
+        elif c2o < 0:  # dia negatiu
+            neg_days += 1
+            if o2c < 0:  # momentum negatiu
+                neg_momentum += 1
+                total_momentum += 1
+                entry = {"date": date, "c2o": c2o, "c2c": c2c, "o2c": o2c}
+                momentum_dates_total.append(entry)
+                momentum_dates_neg.append(entry)
 
-        for fecha in earnings_dates:
-            prev_day = stock_data[stock_data['Date'] <= fecha].iloc[-1:]
-            next_day = stock_data[stock_data['Date'] > fecha].iloc[0:1]
-
-            if not prev_day.empty and not next_day.empty:
-                prev_close = prev_day['Close'].values[0]
-                next_open = next_day['Open'].values[0]
-                next_close = next_day['Close'].values[0]
-
-                if pd.notna(next_open) and pd.notna(next_close):
-                    c2o = (next_open - prev_close) / prev_close
-                    c2c = (next_close - prev_close) / prev_close
-
-                    total_earnings += 1
-
-                    if c2o > 0:
-                        pos_days += 1
-                        if (c2c - c2o) > 0:
-                            pos_momentum += 1
-                            total_momentum += 1
-                    elif c2o < 0:
-                        neg_days += 1
-                        if (c2c - c2o) < 0:
-                            neg_momentum += 1
-                            total_momentum += 1
-
-        if total_earnings == 0:
-            return None
-
-        return {
-            "ticker": ticker,
-            "pct_momentum_total": round(100 * total_momentum / total_earnings, 2),
-            "pct_momentum_pos": round(100 * pos_momentum / pos_days, 2) if pos_days else 0,
-            "pct_momentum_neg": round(100 * neg_momentum / neg_days, 2) if neg_days else 0
-        }
-
-    except Exception:
-        return None
+    return {
+        "ticker": ticker,
+        "pct_momentum_total": round(total_momentum / total * 100, 2),
+        "pct_momentum_pos": round(pos_momentum / pos_days * 100, 2) if pos_days else 0,
+        "pct_momentum_neg": round(neg_momentum / neg_days * 100, 2) if neg_days else 0,
+        "momentum_dates_total": momentum_dates_total,
+        "momentum_dates_pos": momentum_dates_pos,
+        "momentum_dates_neg": momentum_dates_neg
+    }

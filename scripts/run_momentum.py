@@ -1,18 +1,48 @@
-# scripts/run_momentum.py
-
 import pandas as pd
-import time
 from datetime import datetime
 from pathlib import Path
 from earnings_stock_analyzer.momentum import analyze_momentum
+from earnings_stock_analyzer.cli import get_cli_args
 
-# 📁 Paths
+# Paths
 BASE_DIR = Path(__file__).parent.parent
-csv_path = BASE_DIR / "data" / "nasdaq_tickers.csv"
-output_dir = BASE_DIR / "data" / "output"
+csv_path = BASE_DIR / "data" / "sp500_and_nasdaq_tickers.csv"
+output_dir = BASE_DIR /"output" / "momentum"
 output_dir.mkdir(parents=True, exist_ok=True)
 
-# 📥 Load tickers from CSV
+# CLI arguments
+args = get_cli_args()
+source = args.source
+ticker_arg = args.ticker
+
+# Single ticker mode
+if ticker_arg:
+    result = analyze_momentum(ticker_arg.upper(), source=source)
+    if result:
+        df_all = pd.DataFrame(result["momentum_dates_total"])
+        df_pos = pd.DataFrame(result["momentum_dates_pos"])
+        df_neg = pd.DataFrame(result["momentum_dates_neg"])
+
+        output_file = output_dir / f"{ticker_arg.lower()}_momentum.csv"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(f"# MOMENTUM EARNINGS DATES for {ticker_arg.upper()}\n")
+            df_all.to_csv(f, index=False)
+            f.write(f"\n# POSITIVE MOMENTUM DATES (Positive Open → Stronger Close)\n")
+            df_pos.to_csv(f, index=False)
+            f.write(f"\n# NEGATIVE MOMENTUM DATES (Negative Open → Weaker Close)\n")
+            df_neg.to_csv(f, index=False)
+
+            f.write(f"\n# PERCENTAGES OF MOMENTUM\n")
+            f.write(f"Total Momentum %:,{result['pct_momentum_total']}\n")
+            f.write(f"Positive Momentum %:,{result['pct_momentum_pos']}\n")
+            f.write(f"Negative Momentum %:,{result['pct_momentum_neg']}\n")
+
+        print(f"\n📁 CSV saved to: {output_file}")
+    else:
+        print(f"⚠️ No momentum data available for {ticker_arg.upper()}.")
+    exit()
+
+# 📅 Load tickers from CSV
 tickers_df = pd.read_csv(csv_path)
 tickers_df.columns = tickers_df.columns.str.strip().str.lower()
 tickers = tickers_df.iloc[:, 0].dropna().unique().tolist()
@@ -22,12 +52,10 @@ results = []
 # 🔁 Analyze each ticker
 for i, ticker in enumerate(tickers, 1):
     print(f"⏳ Analyzing {ticker} ({i}/{len(tickers)})...")
-    result = analyze_momentum(ticker)
+    result = analyze_momentum(ticker, source=source)
     if result:
         results.append(result)
-    time.sleep(1.5)  # avoid overloading API
 
-# ✅ Convert to DataFrame
 df = pd.DataFrame(results)
 
 # 📊 Rankings
