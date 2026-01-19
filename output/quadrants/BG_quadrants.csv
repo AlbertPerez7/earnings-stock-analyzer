@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for BG
+# total_earnings=8, considered=8, excluded_c2o_zero=0, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",0,8,0/8 = 0.00%,0.0,
+"After +C→O, next day DOWN",6,8,6/8 = 75.00%,75.0,2025-11-05;2025-02-05;2024-10-30;2024-07-31;2024-04-24;2024-02-07
+"After −C→O, next day UP",2,8,2/8 = 25.00%,25.0,2025-07-30;2025-05-07
+"After −C→O, next day DOWN",0,8,0/8 = 0.00%,0.0,

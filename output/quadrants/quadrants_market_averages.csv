@@ -1,0 +1,7 @@
+Metric,Value
+universe_count,513
+avg_pos_then_up_pct,27.2367
+avg_pos_then_down_pct,27.0462
+avg_neg_then_up_pct,22.5287
+avg_neg_then_down_pct,23.1887
+momentum_bias_pct,0.8505

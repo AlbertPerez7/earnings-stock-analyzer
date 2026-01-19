@@ -1,163 +1,157 @@
-# 📊 Earnings Stock Analyzer
+#  Post-Earnings Momentum Strategy — Pipeline & Analysis
 
-This Python project analyzes how a stock has historically reacted in the market after publishing its earnings. It supports **two data sources** (library or API), multiple execution modes, and outputs both CSVs and plots for further analysis.
+This repository contains the full implementation of an **event-driven post-earnings momentum strategy**, developed as an applied quantitative finance project.  
+The objective is to study whether **stock-specific momentum effects following earnings announcements** can be systematically identified and translated into a profitable out-of-sample trading strategy.
 
-The **main purpose** of the project is to find a **statistical edge** that repeats historically around earnings announcements, in order to identify potential investment opportunities.
-
----
-
-## 🎯 Purpose
-
-The project has **two main types of analysis**:
-
-1. **Earnings Reaction Analysis**
-
-   * Calculates the **absolute price change average** around earnings announcements, the average in positive earnings, and the average in negative earnings:
-
-     * **Previous Close → Next Open**
-     * **Previous Close → Next Close**
-     * **Next Open → Next Close**
-2. **Momentum Analysis**
-
-   * Focuses on **whether momentum continued the next day** after earnings:
-
-     * Calculates the % of cases where earnings with a positive reaction continued upward the day after.
-     * Calculates the % of cases where earnings with a negative reaction continued downward the day after.
-     * Provides overall momentum success rate, % of positives with momentum, and % of negatives with momentum.
-   * The purpose is to measure the **persistence of trends** following earnings.
-
-Together, these two analyses provide a picture of both:
-
-* The **magnitude of changes** caused by earnings (reaction analysis).
-* The **likelihood of continuation** after earnings (momentum analysis).
-* And ultimately, whether a **statistical edge** exists that can be exploited for investing strategies.
+The project follows a **clean, reproducible execution pipeline**, from earnings-level signal construction to portfolio backtesting and performance evaluation.
 
 ---
 
-## 🗂 Project Structure
+##  Project Objective
+
+The project addresses three core research questions:
+
+1. **How do stock prices react around earnings announcements?**  
+   Earnings reactions are decomposed into overnight (Close → Open) and intraday (Open → Close) price movements.
+
+2. **Is post-earnings momentum a universal market effect or stock-specific?**  
+   A market-wide diagnostic test is used to assess whether continuation dominates reversal at the index level.
+
+3. **Can a subset of stocks with persistent post-earnings momentum be identified ex-ante and traded profitably out-of-sample surpassing a passive index like sp500?**  
+   Stocks are ranked using only pre-2017 data, a fixed universe is selected, and performance is evaluated strictly out-of-sample.
+
+---
+
+##  Methodology Overview
+
+- Earnings announcements are aligned to the **next trading day**.
+- For each earnings event, two returns are computed:
+  - **Close → Open** (overnight reaction)
+  - **Open → Close** (intraday continuation or reversal)
+- Each event is classified into one of four **post-earnings quadrants**:
+  - `pos_then_up`
+  - `pos_then_down`
+  - `neg_then_up`
+  - `neg_then_down`
+- Stocks are ranked by **historical momentum bias** using only information available up to 2017.
+- A **Top-25 stock universe** is selected and traded from 2017–2024.
+- The strategy is evaluated using equity curves, rolling forward CAGRs, monthly and yearly returns, and return distributions.
+
+---
+
+## ⚙ Execution Pipeline (Reproducible)
+
+```
+run_quadrants.py
+        ↓
+top_25_quadrants_until2017.py
+        ↓
+momentum_portfolio_top25_until_2024.py
+        ↓
+performance_analysis_and_plots.py
+```
+
+### Pipeline Steps
+
+1. **Quadrant construction**  
+   `run_quadrants.py` applies the post-earnings quadrant classification to each stock in the dataset.  
+   The classification logic is implemented internally in `earnings_stock_analyzer/quadrants.py`.
+
+2. **Stock selection (ex-ante)**  
+   `top_25_quadrants_until2017.py` ranks stocks by post-earnings momentum bias using only pre-2017 data and selects the Top-25 universe.
+
+3. **Out-of-sample trading strategy**  
+   `momentum_portfolio_top25_until_2024.py` executes the earnings-driven momentum strategy on the fixed stock universe from 2017 to 2024.
+
+4. **Performance analysis & visualization**  
+   `performance_analysis_and_plots.py` computes equity curves, rolling-start CAGRs, monthly and yearly returns, and benchmark comparisons.
+
+---
+
+##  Project Structure
 
 ```
 earnings-stock-analyzer/
+├── data/
+│   └── sp500_and_nasdaq_tickers.csv
+│
 ├── earnings_stock_analyzer/
-│   ├── __init__.py              # Package initializer
-│   ├── analyzer.py              # Core analysis logic
-│   ├── fetch.py                 # Unified data fetching (library or API)
-│   ├── plot.py                  # Plotting and visualization
-│   └── cli.py                   # CLI configuration
+│   ├── __init__.py
+│   ├── fetch.py
+│   ├── quadrants.py
+│   ├── analyzer.py
+│   ├── momentum.py
+│   ├── plot.py
+│   └── cli.py
+│
 ├── scripts/
-│   ├── run_analysis.py          # Main script for earnings reaction analysis
-│   ├── run_momentum.py          # Main script for momentum analysis
-│   
-├── data/                        # Input datasets (CSV)
-├── output/                      # Generated results (CSVs, plots)
+│   ├── run_quadrants.py
+│   ├── top_25_quadrants_until2017.py
+│   ├── momentum_portfolio_top25_until_2024.py
+│   ├── performance_analysis_and_plots.py
+│   └── market_wide_quadrant_analysis.py
+│
+├── output/
+│   └── quadrants/
+│
+├── report/
+│   └── Momentum_Project.pdf
+│
 ├── README.md
 ├── pyproject.toml
-├── poetry.lock
+└── poetry.lock
 ```
 
 ---
 
-## 🚀 How to Run
+##  How to Run
 
-1. **Install dependencies:**
-
-   ```bash
-   poetry install
-   ```
-
-2. **Activate shell (optional):**
-
-   ```bash
-   poetry shell
-   ```
-
-### 🔹 Earnings Reaction Analysis
-
-Run the analysis script:
-
+### Install dependencies
 ```bash
-poetry run python scripts/run_analysis.py <ticker> --source [library|api] [--api-key API_KEY]
+poetry install
 ```
 
-Examples:
-
+### Activate environment (optional)
 ```bash
-# Analyze NVDA with library data (default source if not specified)
-poetry run python scripts/run_analysis.py NVDA
-
-# Analyze NVDA with API (using default project key)
-poetry run python scripts/run_analysis.py NVDA --source api
-
-# Analyze NVDA with API and your own API key (optional, for higher limits)
-poetry run python scripts/run_analysis.py NVDA --source api --api-key YOUR_KEY
-
-# Analyze all tickers in S&P 500 + Nasdaq (no ticker specified)
-poetry run python scripts/run_analysis.py
+poetry shell
 ```
 
-### 🔹 Momentum Analysis
-
-Run the momentum script:
-
+### Execute the pipeline
 ```bash
-poetry run python scripts/run_momentum.py <ticker> --source [library|api] [--api-key API_KEY]
+poetry run python scripts/run_quadrants.py
 ```
-
-Examples:
-
 ```bash
-# Momentum analysis for NVDA with library data
-poetry run python scripts/run_momentum.py NVDA
-
-# Momentum analysis for NVDA with API
-poetry run python scripts/run_momentum.py NVDA --source api
-
-# Momentum analysis for all tickers (S&P 500 + Nasdaq)
-poetry run python scripts/run_momentum.py
+poetry run python scripts/top_25_quadrants_until2017.py
+```
+```bash
+poetry run python scripts/momentum_portfolio_top25_until_2024.py
+```
+```bash
+poetry run python scripts/performance_analysis_and_plots.py
 ```
 
 ---
 
-## 📂 Output
+##  Outputs
 
-All outputs are saved in the **`output/`** directory.
-
-Depending on how you run the program, different CSVs are created:
-
-### **Single Ticker (Analysis or Momentum)**
-
-* Detailed CSV showing all historical earnings dates for the ticker.
-* Includes Close→Open, Close→Close, and Open→Close changes.
-* Momentum files also show continuation statistics (overall, positives, negatives).
-
-### **All Tickers (S\&P 500 + Nasdaq)**
-
-If no ticker is provided, the project analyzes all tickers in the dataset and creates **rankings**:
-
-1. **Analysis Mode**:
-
-   * CSV with the **Top 20 stocks** ranked by the highest average absolute change in **Close→Open** on earnings days.
-
-2. **Momentum Mode**:
-
-   * CSV with the **Top 30 overall stocks** with the highest % of momentum continuation.
-   * CSV with the **Top 30 stocks on positive earnings days** with the highest % of continued momentum.
-   * CSV with the **Top 30 stocks on negative earnings days** with the highest % of continued momentum.
-
-This allows you to quickly identify which stocks historically have the largest reactions and which ones show the strongest continuation patterns.
+All results are saved in the `output/` directory, including:
+- Per-stock quadrant classifications
+- Top-25 universe selection
+- Trade-level and portfolio-level returns
+- Equity curves
+- Monthly and yearly performance tables
+- Rolling forward CAGR comparisons against the S&P 500
 
 ---
 
-## 🔑 Requirements
+##  Data Sources
 
-* Python ≥ 3.13
-* Packages (auto-installed with Poetry):
-
-  * `requests`, `pandas`, `yfinance`, `matplotlib`, `seaborn`
-  * `stocks-earnings-dates` (my own library that you will see here is the one used in this project to recollect the earnings dates and % changes for each date): [GitHub link](https://github.com/AlbertPerez7/stocks-earnings-dates))
+Earnings dates and price reactions are obtained using the custom Python library  
+**`stocks-earnings-dates`**, developed by me and based on SEC EDGAR filings.
 
 ---
 
-## ✍️ Author
+## Author
 
-Developed by [AlbertPerez7](mailto:albertperez2004@gmail.com) as a personal project to explore **API usage, data analysis, quantitative finance, and systematic investing strategies**.
+Developed by **Albert Pérez**  
+as an applied project in **quantitative finance, event-driven strategies, and systematic backtesting**.

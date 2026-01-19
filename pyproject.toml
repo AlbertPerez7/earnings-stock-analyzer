@@ -1,6 +1,6 @@
 [project]
 name = "earnings-stock-analyzer"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = [
     {name = "AlbertPerez7",email = "albertperez2004@gmail.com"}

@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for DIS
+# total_earnings=27, considered=27, excluded_c2o_zero=0, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",7,27,7/27 = 25.93%,25.93,2025-05-07;2025-02-05;2024-11-14;2024-02-07;2023-11-08;2023-08-09;2020-08-04
+"After +C→O, next day DOWN",11,27,11/27 = 40.74%,40.74,2025-08-06;2023-02-08;2022-08-10;2022-02-09;2021-08-12;2021-02-11;2020-11-12;2020-05-05;2020-02-04;2019-11-07;2019-05-08
+"After −C→O, next day UP",4,27,4/27 = 14.81%,14.81,2024-08-07;2024-05-07;2022-05-11;2021-05-13
+"After −C→O, next day DOWN",5,27,5/27 = 18.52%,18.52,2025-11-13;2023-05-10;2022-11-08;2021-11-10;2019-08-06

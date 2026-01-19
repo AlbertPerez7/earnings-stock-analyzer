@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for GFS
+# total_earnings=15, considered=14, excluded_c2o_zero=1, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",4,14,4/14 = 28.57%,28.57,2025-02-11;2024-11-05;2023-05-09;2022-08-09
+"After +C→O, next day DOWN",4,14,4/14 = 28.57%,28.57,2024-08-06;2023-11-07;2022-02-08;2021-11-30
+"After −C→O, next day UP",4,14,4/14 = 28.57%,28.57,2025-05-06;2024-02-13;2023-02-14;2022-11-08
+"After −C→O, next day DOWN",2,14,2/14 = 14.29%,14.29,2023-08-08;2022-05-10

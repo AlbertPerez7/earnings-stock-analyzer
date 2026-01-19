@@ -1,0 +1,8 @@
+date,close_to_open_pct,open_to_close_pct,close_to_close_pct,scenario,conditional_sign,next_day_sign
+2024-05-09,-1.59,-0.09,-1.68,neg_then_down,negative,down
+2024-08-08,2.28,0.98,3.29,pos_then_up,positive,up
+2024-11-07,2.04,-5.44,-3.52,pos_then_down,positive,down
+2025-02-27,-2.98,-1.48,-4.42,neg_then_down,negative,down
+2025-05-08,2.0,3.34,5.4,pos_then_up,positive,up
+2025-08-07,3.38,-1.33,2.0,pos_then_down,positive,down
+2025-11-06,3.53,4.23,7.91,pos_then_up,positive,up

@@ -1,0 +1,2 @@
+Ticker,pos_then_up_fraction,pos_then_down_fraction,neg_then_up_fraction,neg_then_down_fraction,considered,total_earnings,sum_pct
+GOOG,4/40 = 10.00%,19/40 = 47.50%,6/40 = 15.00%,11/40 = 27.50%,40,41,100.0

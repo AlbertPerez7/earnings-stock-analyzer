@@ -1,0 +1,12 @@
+Metric,Value
+threshold_gap_pct,7
+total_events,2191
+count_pos_then_up,662
+count_pos_then_down,556
+count_neg_then_up,468
+count_neg_then_down,505
+pct_pos_then_up,30.2145
+pct_pos_then_down,25.3765
+pct_neg_then_up,21.3601
+pct_neg_then_down,23.0488
+momentum_bias_pct,6.5267

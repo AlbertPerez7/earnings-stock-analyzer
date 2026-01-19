@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for VLTO
+# total_earnings=9, considered=9, excluded_c2o_zero=0, excluded_o2c_zero=0
+# sum_pct=99.99
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",4,9,4/9 = 44.44%,44.44,2025-07-28;2024-07-25;2024-04-24;2024-02-06
+"After +C→O, next day DOWN",1,9,1/9 = 11.11%,11.11,2024-10-23
+"After −C→O, next day UP",2,9,2/9 = 22.22%,22.22,2025-04-29;2023-10-25
+"After −C→O, next day DOWN",2,9,2/9 = 22.22%,22.22,2025-10-28;2025-02-04

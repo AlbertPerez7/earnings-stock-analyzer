@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for DOW
+# total_earnings=26, considered=25, excluded_c2o_zero=1, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",5,25,5/25 = 20.00%,20.0,2025-10-23;2025-01-30;2022-10-20;2021-04-22;2019-10-24
+"After +C→O, next day DOWN",9,25,9/25 = 36.00%,36.0,2024-07-25;2024-04-25;2024-01-25;2022-07-21;2022-04-21;2022-01-27;2021-10-21;2021-07-22;2020-10-22
+"After −C→O, next day UP",6,25,6/25 = 24.00%,24.0,2025-07-24;2025-04-24;2023-07-25;2023-04-25;2023-01-26;2020-01-29
+"After −C→O, next day DOWN",5,25,5/25 = 20.00%,20.0,2024-10-24;2023-10-24;2021-01-28;2020-04-30;2019-07-25

@@ -1,0 +1,17 @@
+date,close_to_open_pct,open_to_close_pct,close_to_close_pct,scenario,conditional_sign,next_day_sign
+2022-01-27,-0.68,3.62,2.91,neg_then_up,negative,up
+2022-05-05,-0.17,-0.71,-0.88,neg_then_down,negative,down
+2022-08-04,-1.41,0.63,-0.79,neg_then_up,negative,up
+2022-11-02,-1.63,3.54,1.85,neg_then_up,negative,up
+2023-02-09,-0.94,4.28,3.3,neg_then_up,negative,up
+2023-05-09,2.23,-0.02,2.22,pos_then_down,positive,down
+2023-08-03,1.04,-0.78,0.24,pos_then_down,positive,down
+2023-11-01,0.88,-0.32,0.56,pos_then_down,positive,down
+2024-02-08,-0.61,2.97,2.35,neg_then_up,negative,up
+2024-05-02,0.83,-3.13,-2.33,pos_then_down,positive,down
+2024-08-01,-5.05,-5.98,-10.73,neg_then_down,negative,down
+2024-11-05,7.36,2.13,9.65,pos_then_up,positive,up
+2025-02-04,-0.87,2.84,1.94,neg_then_up,negative,up
+2025-05-02,-1.38,0.36,-1.03,neg_then_up,negative,up
+2025-08-05,0.65,-0.42,0.23,pos_then_down,positive,down
+2025-11-04,0.67,1.8,2.48,pos_then_up,positive,up

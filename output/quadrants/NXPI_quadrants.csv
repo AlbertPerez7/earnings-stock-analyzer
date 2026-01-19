@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for NXPI
+# total_earnings=25, considered=25, excluded_c2o_zero=0, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",10,25,10/25 = 40.00%,40.0,2024-11-05;2022-07-26;2022-05-03;2022-02-01;2021-11-02;2021-08-03;2020-07-28;2020-04-07;2020-02-04;2019-10-29
+"After +C→O, next day DOWN",6,25,6/25 = 24.00%,24.0,2024-02-06;2023-05-02;2022-11-01;2021-04-27;2021-02-02;2020-10-08
+"After −C→O, next day UP",5,25,5/25 = 20.00%,20.0,2025-04-28;2025-02-04;2023-11-07;2023-07-25;2023-01-31
+"After −C→O, next day DOWN",4,25,4/25 = 16.00%,16.0,2025-10-28;2025-07-22;2024-07-23;2024-04-30

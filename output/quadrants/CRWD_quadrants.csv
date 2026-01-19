@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for CRWD
+# total_earnings=25, considered=25, excluded_c2o_zero=0, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",8,25,8/25 = 32.00%,32.0,2025-05-07;2024-06-04;2023-11-28;2023-08-30;2022-03-09;2021-12-01;2021-03-16;2020-12-02
+"After +C→O, next day DOWN",8,25,8/25 = 32.00%,32.0,2024-03-05;2023-03-07;2022-08-30;2021-06-03;2020-06-02;2020-03-19;2019-12-05;2019-07-18
+"After −C→O, next day UP",5,25,5/25 = 20.00%,20.0,2025-08-27;2025-03-04;2024-08-28;2023-05-31;2022-11-29
+"After −C→O, next day DOWN",4,25,4/25 = 16.00%,16.0,2024-11-26;2022-06-02;2021-08-31;2020-09-02

@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for CEG
+# total_earnings=14, considered=14, excluded_c2o_zero=0, excluded_o2c_zero=0
+# sum_pct=100.0
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",6,14,6/14 = 42.86%,42.86,2024-11-04;2024-02-27;2023-08-03;2023-05-04;2022-08-04;2022-05-12
+"After +C→O, next day DOWN",4,14,4/14 = 28.57%,28.57,2025-08-07;2025-05-06;2024-08-06;2024-05-09
+"After −C→O, next day UP",1,14,1/14 = 7.14%,7.14,2022-11-08
+"After −C→O, next day DOWN",3,14,3/14 = 21.43%,21.43,2025-02-18;2023-11-06;2023-02-16

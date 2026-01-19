@@ -1,0 +1,8 @@
+# Post-Earnings Next-Day Outcomes for FOXA
+# total_earnings=25, considered=24, excluded_c2o_zero=0, excluded_o2c_zero=1
+# sum_pct=100.01
+Scenario,Count,Denominator,Fraction,Percent,Dates
+"After +C→O, next day UP",10,24,10/24 = 41.67%,41.67,2025-05-12;2024-11-04;2024-08-06;2023-11-02;2022-08-10;2022-05-10;2021-08-04;2021-05-05;2021-02-09;2019-11-06
+"After +C→O, next day DOWN",9,24,9/24 = 37.50%,37.5,2025-02-04;2024-05-08;2024-02-07;2023-05-09;2023-02-08;2021-11-03;2020-05-06;2020-02-05;2019-08-07
+"After −C→O, next day UP",1,24,1/24 = 4.17%,4.17,2022-02-09
+"After −C→O, next day DOWN",4,24,4/24 = 16.67%,16.67,2023-08-08;2022-11-01;2020-11-03;2020-08-04
