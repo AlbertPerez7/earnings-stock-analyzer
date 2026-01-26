@@ -95,7 +95,7 @@ earnings-stock-analyzer/
 │   └── quadrants/
 │
 ├── report/
-│   └── Momentum_Project.pdf
+│   └── Momentum project.pdf
 │
 ├── README.md
 ├── pyproject.toml
