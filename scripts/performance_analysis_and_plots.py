@@ -247,12 +247,30 @@ def plot_bell_kde(strat_vals_pct: np.ndarray, spx_vals_pct: np.ndarray, title: s
     dens_b = kde_gaussian(spx_vals_pct, xs)
 
     plt.figure(figsize=(10, 6))
-    plt.plot(xs, dens_s, label="Strategy KDE")
-    plt.plot(xs, dens_b, label="S&P 500 KDE")
-    plt.axvline(strat_vals_pct.mean(), linestyle="--", linewidth=2,
-                label=f"Strategy mean = {strat_vals_pct.mean():.2f}%")
-    plt.axvline(spx_vals_pct.mean(), linestyle="--", linewidth=2,
-                label=f"S&P 500 mean = {spx_vals_pct.mean():.2f}%")
+
+    # KDE lines (capture colors)
+    line_s, = plt.plot(xs, dens_s, label="Strategy KDE")
+    line_b, = plt.plot(xs, dens_b, label="S&P 500 KDE")
+
+    strat_color = line_s.get_color()
+    spx_color = line_b.get_color()
+
+    # Mean lines (match each KDE color)
+    plt.axvline(
+        strat_vals_pct.mean(),
+        linestyle="--",
+        linewidth=2,
+        color=strat_color,
+        label=f"Strategy mean = {strat_vals_pct.mean():.2f}%"
+    )
+    plt.axvline(
+        spx_vals_pct.mean(),
+        linestyle="--",
+        linewidth=2,
+        color=spx_color,
+        label=f"S&P 500 mean = {spx_vals_pct.mean():.2f}%"
+    )
+
     plt.xlabel(xlabel)
     plt.ylabel("Density")
     plt.title(title)
@@ -260,6 +278,7 @@ def plot_bell_kde(strat_vals_pct: np.ndarray, spx_vals_pct: np.ndarray, title: s
     plt.legend()
     plt.tight_layout()
     plt.show()
+
 
 
 def plot_equity_curve(strategy_eq: pd.Series, spx_eq: pd.Series, analysis_end: pd.Timestamp):
