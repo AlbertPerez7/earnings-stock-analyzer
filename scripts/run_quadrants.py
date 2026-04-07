@@ -16,10 +16,10 @@ OUT_DIR = (PROJECT_ROOT / "output" / "quadrants")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 ORDERED = [
-    ("pos_then_up", "After +C→O, next day UP"),
-    ("pos_then_down", "After +C→O, next day DOWN"),
-    ("neg_then_up", "After −C→O, next day UP"),
-    ("neg_then_down", "After −C→O, next day DOWN"),
+    ("pos_then_up", "After +C->O, next day UP"),
+    ("pos_then_down", "After +C->O, next day DOWN"),
+    ("neg_then_up", "After -C->O, next day UP"),
+    ("neg_then_down", "After -C->O, next day DOWN"),
 ]
 
 def _scenario_rows(result: dict):
@@ -76,9 +76,9 @@ def save_single(result: dict):
     }])
     ol.to_csv(one_line_summary_path, index=False)
 
-    print(f"📁 Saved summary: {summary_path}")
-    print(f"📁 Saved detail:  {detail_path}")
-    print(f"📁 Saved one-line ticker summary: {one_line_summary_path}")
+    print(f"Saved summary: {summary_path}")
+    print(f"Saved detail:  {detail_path}")
+    print(f"Saved one-line ticker summary: {one_line_summary_path}")
 
 def save_batch(results: list):
     if not results:
@@ -116,8 +116,8 @@ def save_batch(results: list):
     } for r in results])
     df_frac.to_csv(out_frac, index=False)
 
-    print(f"📁 Saved: {out_pct}")
-    print(f"📁 Saved: {out_frac}")
+    print(f"Saved: {out_pct}")
+    print(f"Saved: {out_frac}")
 
 def main():
     args = get_cli_args()
@@ -126,7 +126,7 @@ def main():
     if args.ticker:
         res = compute_post_earnings_quadrants(args.ticker.upper(), source=source)
         if not res:
-            print(f"⚠️ No earnings data for {args.ticker.upper()}")
+            print(f"No earnings data for {args.ticker.upper()}")
             return
         save_single(res)
         return
@@ -140,13 +140,13 @@ def main():
     results = []
     for t in tickers:
         try:
-            print(f"⏳ {t} ...")
+            print(f"{t} ...")
             r = compute_post_earnings_quadrants(t, source=source)
             if r:
                 save_single(r)          # also write per-ticker files in batch
                 results.append(r)
         except Exception as e:
-            print(f"❌ {t}: {e}")
+            print(f"{t}: {e}")
     save_batch(results)
 
 if __name__ == "__main__":

@@ -1,13 +1,16 @@
-import csv
-from pathlib import Path
-from datetime import datetime, date
-from collections import defaultdict
+from __future__ import annotations
 
-# ------------------------------
+import csv
+import logging
+from collections import defaultdict
+from datetime import date, datetime
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
 # Paths
-# ------------------------------
-THIS = Path(__file__).resolve()
-PROJECT_ROOT = THIS.parent.parent if THIS.parent.name == "scripts" else THIS.parent
+# ---------------------------------------------------------------------------
+_THIS = Path(__file__).resolve()
+PROJECT_ROOT = _THIS.parent.parent if _THIS.parent.name == "scripts" else _THIS.parent
 
 QUADRANTS_DIR = PROJECT_ROOT / "output" / "quadrants"
 ANALYSIS_DIR  = PROJECT_ROOT / "output" / "analysis"
@@ -15,99 +18,114 @@ ANALYSIS_DIR  = PROJECT_ROOT / "output" / "analysis"
 TOP25_PATH = ANALYSIS_DIR / "top25_quadrants_momentum_bias.csv"
 OUT_PATH   = ANALYSIS_DIR / "momentum_top25_detailed_until2024.csv"
 
-# Out-of-sample trading window (selection uses pre-2017 data; trading starts in 2018)
+# ---------------------------------------------------------------------------
+# Out-of-sample trading window
+# Selection uses pre-2017 data; trading starts in 2018 to avoid any
+# look-ahead bias from the stock selection step.
+# ---------------------------------------------------------------------------
 START_DATE = date(2018, 1, 1)
-CUTOFF = date(2024, 12, 31)
+CUTOFF     = date(2024, 12, 31)
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
+logger = logging.getLogger(__name__)
 
 
-def load_top25(path: Path):
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def load_top25(path: Path) -> list[str]:
+    """Load the pre-selected Top-25 ticker universe from the ranking CSV."""
     if not path.exists():
-        raise FileNotFoundError(f"❌ top25_quadrants_momentum_bias.csv not found at: {path}")
+        raise FileNotFoundError(f"Top-25 ranking file not found at: {path}")
     tickers = []
     with path.open("r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+        for row in csv.DictReader(f):
             t = (row.get("ticker") or row.get("Ticker") or "").strip().upper()
             if t:
                 tickers.append(t)
     return sorted(set(tickers))
 
 
-def main():
-    print(f"PROJECT_ROOT = {PROJECT_ROOT}")
-    print(f"QUADRANTS_DIR = {QUADRANTS_DIR}")
-    print(f"ANALYSIS_DIR = {ANALYSIS_DIR}")
+def _read_trades_for_ticker(
+    ticker: str,
+    trades_by_date: defaultdict,
+) -> int:
+    """
+    Read the detailed quadrant CSV for a single ticker and append all
+    out-of-sample earnings-day trades to trades_by_date.
+
+    Returns the number of trades added.
+    """
+    file = QUADRANTS_DIR / f"{ticker}_quadrants_detailed.csv"
+    if not file.exists():
+        logger.warning("Missing detailed file for %s: %s", ticker, file)
+        return 0
+
+    count = 0
+    with file.open("r", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            try:
+                event_date = datetime.strptime(row["date"].strip(), "%Y-%m-%d").date()
+                c2o = float(row["close_to_open_pct"])
+                o2c = float(row["open_to_close_pct"])
+            except (KeyError, ValueError):
+                continue
+
+            if event_date < START_DATE or event_date > CUTOFF:
+                continue
+            if c2o == 0 or o2c == 0:
+                continue
+
+            # Momentum rule: go long if the overnight gap is positive,
+            # short if negative. Position is held intraday only (open -> close).
+            trade_ret = o2c if c2o > 0 else -o2c  # LONG or SHORT
+
+            trades_by_date[event_date].append({
+                "ticker":    ticker,
+                "c2o":       c2o,
+                "o2c":       o2c,
+                "trade_ret": trade_ret,
+            })
+            count += 1
+
+    return count
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
     ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1) Load top25
-    try:
-        tickers = load_top25(TOP25_PATH)
-    except Exception as e:
-        print(e)
-        return
-
+    tickers = load_top25(TOP25_PATH)
     if not tickers:
-        print("❌ No tickers found in top25_quadrants_momentum_bias.csv")
+        logger.error("No tickers found in %s", TOP25_PATH)
         return
 
-    print(f"✅ Loaded {len(tickers)} tickers:")
-    print("   " + ", ".join(tickers))
+    logger.info("Loaded %d tickers: %s", len(tickers), ", ".join(tickers))
 
-    trades_by_date = defaultdict(list)
+    # Collect all trades grouped by date
+    trades_by_date: defaultdict[date, list] = defaultdict(list)
     total_trades = 0
-    missing = []
-
-    # 2) Read the *_quadrants_detailed.csv files
-    if not QUADRANTS_DIR.exists():
-        print(f"❌ Quadrants directory not found: {QUADRANTS_DIR}")
-        return
-
     for ticker in tickers:
-        file = QUADRANTS_DIR / f"{ticker}_quadrants_detailed.csv"
-        if not file.exists():
-            print(f"⚠ Missing detailed file for ticker {ticker}: {file}")
-            missing.append(ticker)
-            continue
-
-        with file.open("r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    d = datetime.strptime(row["date"].strip(), "%Y-%m-%d").date()
-                    c2o = float(row["close_to_open_pct"])
-                    o2c = float(row["open_to_close_pct"])
-                except Exception:
-                    continue
-
-                # Filter to out-of-sample window only
-                if d < START_DATE or d > CUTOFF:
-                    continue
-                if c2o == 0 or o2c == 0:
-                    continue
-
-                # Momentum logic
-                if c2o > 0:
-                    trade_ret = o2c       # LONG
-                else:
-                    trade_ret = -o2c      # SHORT
-
-                trades_by_date[d].append({
-                    "ticker": ticker,
-                    "c2o": c2o,
-                    "o2c": o2c,
-                    "trade_ret": trade_ret
-                })
-                total_trades += 1
+        total_trades += _read_trades_for_ticker(ticker, trades_by_date)
 
     if not trades_by_date:
-        print("❌ No trades found in the out-of-sample window for these tickers.")
+        logger.error("No trades found in the out-of-sample window.")
         return
 
-    print(f"📅 Trading days with at least one trade: {len(trades_by_date)}")
-    print(f"📊 Total individual trades: {total_trades}")
+    logger.info("Trading days with at least one trade: %d", len(trades_by_date))
+    logger.info("Total individual trades: %d", total_trades)
 
-    # 3) Compounding + detailed CSV
-    sorted_dates = sorted(trades_by_date.keys())
+    # Simulate the strategy with equal-weighted daily allocation and compounding.
+    # On each trading day, capital is split equally across all active positions.
+    # The daily portfolio return is the arithmetic average of individual trade
+    # returns, and equity is updated via compounding.
     equity = 1.0
 
     with OUT_PATH.open("w", encoding="utf-8", newline="") as f:
@@ -125,19 +143,17 @@ def main():
             "cumulative_return_pct",
         ])
 
-        for d in sorted_dates:
-            day_trades = trades_by_date[d]
-            rets = [t["trade_ret"] for t in day_trades]
-            avg_ret = sum(rets) / len(rets)
+        for day in sorted(trades_by_date):
+            day_trades = trades_by_date[day]
+            avg_ret    = sum(t["trade_ret"] for t in day_trades) / len(day_trades)
 
             eq_before = equity
-            equity *= (1.0 + avg_ret / 100.0)
-            eq_after = equity
-            cum_pct = (equity - 1.0) * 100.0
+            equity   *= 1.0 + avg_ret / 100.0
+            cum_pct   = (equity - 1.0) * 100.0
 
             for t in day_trades:
                 w.writerow([
-                    d.isoformat(),
+                    day.isoformat(),
                     t["ticker"],
                     t["c2o"],
                     t["o2c"],
@@ -145,13 +161,15 @@ def main():
                     len(day_trades),
                     round(avg_ret, 6),
                     round(eq_before, 8),
-                    round(eq_after, 8),
-                    round(cum_pct, 6),
+                    round(equity,    8),
+                    round(cum_pct,   6),
                 ])
 
-    print("\n✅ Detailed simulation completed.")
-    print(f"📁 Output saved to: {OUT_PATH}")
-    print(f"📈 Final equity: {equity:.2f}  (≈ {(equity - 1.0)*100:.2f}% return)")
+    logger.info("Simulation complete. Output saved to: %s", OUT_PATH)
+    logger.info(
+        "Final equity: %.4f  (%.2f%% total return)",
+        equity, (equity - 1.0) * 100.0,
+    )
 
 
 if __name__ == "__main__":

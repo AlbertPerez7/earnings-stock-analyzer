@@ -1,2 +1,2 @@
 Ticker,pos_then_up_fraction,pos_then_down_fraction,neg_then_up_fraction,neg_then_down_fraction,considered,total_earnings,sum_pct
-CBOE,20/60 = 33.33%,18/60 = 30.00%,13/60 = 21.67%,9/60 = 15.00%,60,61,100.0
+CBOE,20/61 = 32.79%,19/61 = 31.15%,13/61 = 21.31%,9/61 = 14.75%,61,62,100.0

@@ -1,140 +1,187 @@
-import matplotlib
-matplotlib.use("TkAgg")  # interactive backend → shows external window
+from __future__ import annotations
 
-from earnings_stock_analyzer.cli import get_cli_args
-from earnings_stock_analyzer.fetch import get_earnings_data
-from earnings_stock_analyzer.analyzer import summarize_reactions
-from earnings_stock_analyzer.plot import plot_results
+import logging
+from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
-from pathlib import Path
-from datetime import datetime
+
+from earnings_stock_analyzer.analyzer import summarize_reactions
+from earnings_stock_analyzer.cli import get_cli_args
+from earnings_stock_analyzer.fetch import get_earnings_data
+from earnings_stock_analyzer.plot import plot_earnings_reactions
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+_THIS = Path(__file__).resolve()
+PROJECT_ROOT = _THIS.parent.parent if _THIS.parent.name == "scripts" else _THIS.parent
+
+DATA_CSV   = PROJECT_ROOT / "data" / "sp500_and_nasdaq_tickers.csv"
+OUTPUT_DIR = PROJECT_ROOT / "output" / "analysis"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
+logger = logging.getLogger(__name__)
 
 
-def main():
-    args = get_cli_args()
-    raw_input = args.ticker
-    source = args.source   # defaults to "library" via cli.py
+# ---------------------------------------------------------------------------
+# Single-ticker output
+# ---------------------------------------------------------------------------
 
-    BASE_DIR = Path(__file__).parent.parent
-    csv_path = BASE_DIR / "data" / "sp500_and_nasdaq_tickers.csv"
-    output_dir = BASE_DIR /"output" / "analysis"
-    plots_dir = output_dir / "top_20_plots"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    plots_dir.mkdir(parents=True, exist_ok=True)
+def _save_single_ticker_csv(
+    ticker: str,
+    reactions: list[dict],
+    summary: dict,
+    output_dir: Path,
+) -> Path:
+    """
+    Save a per-ticker CSV combining raw earnings reactions and a
+    summary statistics block appended at the bottom.
+    """
+    df_reactions = pd.DataFrame([{
+        "Date": r["date"],
+        "C2O":  r["close_to_open_pct"],
+        "C2C":  r["close_to_close_pct"],
+        "O2C":  r["open_to_close_pct"],
+    } for r in reactions])
 
-    if not raw_input:
-        # Analyze all tickers from CSV
-        tickers_df = pd.read_csv(csv_path)
-        tickers = tickers_df.iloc[:, 0].dropna().unique().tolist()
-        multiple_mode = True
-    else:
-        tickers = [t.strip().upper() for t in raw_input.replace(",", " ").split() if t.strip()]
+    summary_rows = pd.DataFrame([
+        {"Date": "--- SUMMARY ---",  "C2O": "",  "C2C": "",  "O2C": ""},
+        {"Date": "Avg |C->O|",       "C2O": summary["avg_abs_close_to_open"]},
+        {"Date": "Avg |C->C|",       "C2O": summary["avg_abs_close_to_close"]},
+        {"Date": "Avg |O->C|",       "C2O": summary["avg_abs_open_to_close"]},
+        {"Date": "Positive days",    "C2O": f"{summary['positive_days']} ({summary['positive_pct']}%)"},
+        {"Date": "Avg C->O (pos)",   "C2O": summary.get("avg_pos_close_to_open",  0)},
+        {"Date": "Avg C->C (pos)",   "C2O": summary.get("avg_pos_close_to_close", 0)},
+        {"Date": "Avg O->C (pos)",   "C2O": summary.get("avg_pos_open_to_close",  0)},
+        {"Date": "Negative days",    "C2O": f"{summary['negative_days']} ({summary['negative_pct']}%)"},
+        {"Date": "Avg C->O (neg)",   "C2O": summary.get("avg_neg_close_to_open",  0)},
+        {"Date": "Avg C->C (neg)",   "C2O": summary.get("avg_neg_close_to_close", 0)},
+        {"Date": "Avg O->C (neg)",   "C2O": summary.get("avg_neg_open_to_close",  0)},
+    ])
+
+    out_path = output_dir / f"{ticker}_earnings.csv"
+    pd.concat([df_reactions, summary_rows], ignore_index=True).to_csv(out_path, index=False)
+    return out_path
+
+
+def _print_single_ticker_summary(
+    ticker: str,
+    reactions: list[dict],
+    summary: dict,
+) -> None:
+    print(f"\n--- {ticker}: individual earnings reactions ---")
+    for r in reactions:
+        print(
+            f"  {r['date']}:  C->O={r['close_to_open_pct']:+.2f}%  "
+            f"C->C={r['close_to_close_pct']:+.2f}%  "
+            f"O->C={r['open_to_close_pct']:+.2f}%"
+        )
+
+    print(f"\n--- {ticker}: average absolute moves ---")
+    print(f"  Close -> Next Open:  {summary['avg_abs_close_to_open']:.2f}%")
+    print(f"  Close -> Next Close: {summary['avg_abs_close_to_close']:.2f}%")
+    print(f"  Open  -> Next Close: {summary['avg_abs_open_to_close']:.2f}%")
+
+    print(f"\n--- {ticker}: positive overnight gap days ({summary['positive_days']}, {summary['positive_pct']}%) ---")
+    print(f"  Avg C->O: {summary.get('avg_pos_close_to_open',  0):+.2f}%")
+    print(f"  Avg C->C: {summary.get('avg_pos_close_to_close', 0):+.2f}%")
+    print(f"  Avg O->C: {summary.get('avg_pos_open_to_close',  0):+.2f}%")
+
+    print(f"\n--- {ticker}: negative overnight gap days ({summary['negative_days']}, {summary['negative_pct']}%) ---")
+    print(f"  Avg C->O: {summary.get('avg_neg_close_to_open',  0):+.2f}%")
+    print(f"  Avg C->C: {summary.get('avg_neg_close_to_close', 0):+.2f}%")
+    print(f"  Avg O->C: {summary.get('avg_neg_open_to_close',  0):+.2f}%")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    args        = get_cli_args()
+    source      = args.source
+    api_key     = args.api_key
+    require_api = args.require_api
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Build ticker list - single ticker, comma-separated list, or full CSV batch
+    if args.ticker:
+        tickers       = [t.strip().upper() for t in args.ticker.replace(",", " ").split() if t.strip()]
         multiple_mode = len(tickers) > 1
+    else:
+        if not DATA_CSV.exists():
+            logger.error("Ticker CSV not found at: %s", DATA_CSV)
+            return
+        tickers       = pd.read_csv(DATA_CSV).iloc[:, 0].dropna().unique().tolist()
+        multiple_mode = True
 
-    summaries = []
-    enriched_dict = {}
+    summaries: list[dict] = []
 
     for ticker in tickers:
-        print(f"\n📊 Analyzing {ticker} from source '{source}'...")
+        logger.info("Analyzing %s (source=%s)...", ticker, source)
         try:
-            earnings_data = get_earnings_data(ticker, source=source)
-            if not earnings_data:
-                print(f"⚠️  No earnings data found for {ticker}. Skipping.")
+            reactions = get_earnings_data(ticker, source=source, api_key=api_key, require_api=require_api)
+            if not reactions:
+                logger.warning("No earnings data for %s. Skipping.", ticker)
                 continue
-        except Exception as e:
-            print(f"❌ Error fetching data for {ticker}: {e}")
+        except Exception:
+            logger.exception("Failed to fetch data for %s", ticker)
             continue
 
-        enriched = earnings_data
-        summary = summarize_reactions(enriched)
+        summary = summarize_reactions(reactions)
         if not summary:
-            print(f"⚠️  Not enough data for {ticker}.")
+            logger.warning("Insufficient data for %s.", ticker)
             continue
 
         if not multiple_mode:
-            print("\n📅 INDIVIDUAL EARNINGS DAY REACTIONS:")
-            for d in enriched:
-                print(f"{d['date']}: C→O={d['close_to_open_pct']}%  "
-                      f"C→C={d['close_to_close_pct']}%  "
-                      f"O→C={d['open_to_close_pct']}%")
+            # Single-ticker mode: print full detail, save CSV, show plot
+            _print_single_ticker_summary(ticker, reactions, summary)
 
-            print("\n📊 AVERAGE ABSOLUTE PERCENTAGE CHANGE AFTER EARNINGS:")
-            print(f"• Close → Next Open: {summary['avg_abs_close_to_open']:.2f}%")
-            print(f"• Close → Next Close: {summary['avg_abs_close_to_close']:.2f}%")
-            print(f"• Next Open → Next Close: {summary['avg_abs_open_to_close']:.2f}%")
-
-            print("\n📈 POSITIVE DAY STATISTICS:")
-            print(f"• Positive Days: {summary['positive_days']} ({summary['positive_pct']}%)")
-            print(f"• Avg Close→Open: {summary.get('avg_pos_close_to_open', 0):.2f}%")
-            print(f"• Avg Close→Close: {summary.get('avg_pos_close_to_close', 0):.2f}%")
-            print(f"• Avg Open→Close: {summary.get('avg_pos_open_to_close', 0):.2f}%")
-
-            print("\n📉 NEGATIVE DAY STATISTICS:")
-            print(f"• Negative Days: {summary['negative_days']} ({summary['negative_pct']}%)")
-            print(f"• Avg Close→Open: {summary.get('avg_neg_close_to_open', 0):.2f}%")
-            print(f"• Avg Close→Close: {summary.get('avg_neg_close_to_close', 0):.2f}%")
-            print(f"• Avg Open→Close: {summary.get('avg_neg_open_to_close', 0):.2f}%")
+            out_path = _save_single_ticker_csv(ticker, reactions, summary, OUTPUT_DIR)
+            logger.info("CSV saved to: %s", out_path)
 
             df_plot = pd.DataFrame([{
                 "Date": r["date"],
-                "C2O": r["close_to_open_pct"],
-                "C2C": r["close_to_close_pct"],
-                "O2C": r["open_to_close_pct"]
-            } for r in enriched])
-
-            # Append summary to bottom of CSV
-            summary_rows = pd.DataFrame([
-                {"Date": "SUMMARY", "C2O": "", "C2C": "", "O2C": ""},
-                {"Date": "Avg Abs C→O", "C2O": summary['avg_abs_close_to_open']},
-                {"Date": "Avg Abs C→C", "C2O": summary['avg_abs_close_to_close']},
-                {"Date": "Avg Abs O→C", "C2O": summary['avg_abs_open_to_close']},
-                {"Date": "Positive Days", "C2O": f"{summary['positive_days']} ({summary['positive_pct']}%)"},
-                {"Date": "Avg C→O (pos)", "C2O": summary.get('avg_pos_close_to_open', 0)},
-                {"Date": "Avg C→C (pos)", "C2O": summary.get('avg_pos_close_to_close', 0)},
-                {"Date": "Avg O→C (pos)", "C2O": summary.get('avg_pos_open_to_close', 0)},
-                {"Date": "Negative Days", "C2O": f"{summary['negative_days']} ({summary['negative_pct']}%)"},
-                {"Date": "Avg C→O (neg)", "C2O": summary.get('avg_neg_close_to_open', 0)},
-                {"Date": "Avg C→C (neg)", "C2O": summary.get('avg_neg_close_to_close', 0)},
-                {"Date": "Avg O→C (neg)", "C2O": summary.get('avg_neg_open_to_close', 0)},
-            ])
-
-            df_full = pd.concat([df_plot, summary_rows], ignore_index=True)
-            output_file = output_dir / f"{ticker}_earnings.csv"
-            df_full.to_csv(output_file, index=False)
-            print(f"\n📁 CSV saved to: {output_file}")
-
-            # Plot → external window
-            plot_results(ticker, df_plot, show=True)
+                "C2O":  r["close_to_open_pct"],
+                "C2C":  r["close_to_close_pct"],
+                "O2C":  r["open_to_close_pct"],
+            } for r in reactions])
+            plot_earnings_reactions(ticker, df_plot, show=True)
 
         else:
+            # Batch mode: collect summary row for ranking table
             summaries.append({
-                "Ticker": ticker,
-                "Avg % C→O": summary["avg_abs_close_to_open"],
-                "Avg % C→C": summary["avg_abs_close_to_close"],
-                "Avg % O→C": summary["avg_abs_open_to_close"],
-                "% Positive": summary["positive_pct"],
-                "% Negative": summary["negative_pct"]
+                "Ticker":      ticker,
+                "Avg % C->O":  summary["avg_abs_close_to_open"],
+                "Avg % C->C":  summary["avg_abs_close_to_close"],
+                "Avg % O->C":  summary["avg_abs_open_to_close"],
+                "% Positive":  summary["positive_pct"],
+                "% Negative":  summary["negative_pct"],
             })
-            enriched_dict[ticker] = enriched
 
     if multiple_mode and summaries:
-        df = pd.DataFrame(summaries)
-        df = df.sort_values(by="Avg % C→O", ascending=False).reset_index(drop=True)
+        df = (
+            pd.DataFrame(summaries)
+            .sort_values("Avg % C->O", ascending=False)
+            .reset_index(drop=True)
+        )
         top20 = df.head(20)
 
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        output_file = output_dir / f"top20_avg_abs_C2O_{timestamp}.csv"
-
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write("# Top 20 Stocks by Avg Absolute C→O %\n")
+        ts         = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        out_path   = OUTPUT_DIR / f"top20_avg_abs_C2O_{ts}.csv"
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write("# Top 20 stocks by average absolute overnight earnings gap\n")
             top20.to_csv(f, index=False)
 
-        print(f"\n📁 CSV saved to: {output_file}")
-        print(f"🖼️  Plots saved to: {plots_dir}")
+        logger.info("Batch summary saved to: %s", out_path)
 
-    elif not summaries and multiple_mode:
-        print("\n❌ No valid data collected from any ticker.")
+    elif multiple_mode and not summaries:
+        logger.error("No valid data collected from any ticker.")
 
 
 if __name__ == "__main__":

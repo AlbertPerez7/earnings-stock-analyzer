@@ -1,78 +1,148 @@
-import pandas as pd
+from __future__ import annotations
+
+import logging
+import sys
 from datetime import datetime
 from pathlib import Path
-from earnings_stock_analyzer.momentum import analyze_momentum
+
+import pandas as pd
+
 from earnings_stock_analyzer.cli import get_cli_args
+from earnings_stock_analyzer.momentum import analyze_momentum
 
+# ---------------------------------------------------------------------------
 # Paths
-BASE_DIR = Path(__file__).parent.parent
-csv_path = BASE_DIR / "data" / "sp500_and_nasdaq_tickers.csv"
-output_dir = BASE_DIR /"output" / "momentum"
-output_dir.mkdir(parents=True, exist_ok=True)
+# ---------------------------------------------------------------------------
+_THIS = Path(__file__).resolve()
+PROJECT_ROOT = _THIS.parent.parent if _THIS.parent.name == "scripts" else _THIS.parent
 
-# CLI arguments
-args = get_cli_args()
-source = args.source
-ticker_arg = args.ticker
+DATA_CSV   = PROJECT_ROOT / "data" / "sp500_and_nasdaq_tickers.csv"
+OUTPUT_DIR = PROJECT_ROOT / "output" / "momentum"
 
-# Single ticker mode
-if ticker_arg:
-    result = analyze_momentum(ticker_arg.upper(), source=source)
-    if result:
-        df_all = pd.DataFrame(result["momentum_dates_total"])
-        df_pos = pd.DataFrame(result["momentum_dates_pos"])
-        df_neg = pd.DataFrame(result["momentum_dates_neg"])
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
+logger = logging.getLogger(__name__)
 
-        output_file = output_dir / f"{ticker_arg.lower()}_momentum.csv"
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(f"# MOMENTUM EARNINGS DATES for {ticker_arg.upper()}\n")
-            df_all.to_csv(f, index=False)
-            f.write(f"\n# POSITIVE MOMENTUM DATES (Positive Open → Stronger Close)\n")
-            df_pos.to_csv(f, index=False)
-            f.write(f"\n# NEGATIVE MOMENTUM DATES (Negative Open → Weaker Close)\n")
-            df_neg.to_csv(f, index=False)
 
-            f.write(f"\n# PERCENTAGES OF MOMENTUM\n")
-            f.write(f"Total Momentum %:,{result['pct_momentum_total']}\n")
-            f.write(f"Positive Momentum %:,{result['pct_momentum_pos']}\n")
-            f.write(f"Negative Momentum %:,{result['pct_momentum_neg']}\n")
+# ---------------------------------------------------------------------------
+# Output helpers
+# ---------------------------------------------------------------------------
 
-        print(f"\n📁 CSV saved to: {output_file}")
-    else:
-        print(f"⚠️ No momentum data available for {ticker_arg.upper()}.")
-    exit()
+def _save_single_ticker(result: dict, output_dir: Path) -> Path:
+    """
+    Save momentum date lists and summary percentages for a single ticker
+    to a structured CSV file.
+    """
+    ticker     = result["ticker"]
+    df_total   = pd.DataFrame(result["momentum_dates_total"])
+    df_pos     = pd.DataFrame(result["momentum_dates_pos"])
+    df_neg     = pd.DataFrame(result["momentum_dates_neg"])
 
-# 📅 Load tickers from CSV
-tickers_df = pd.read_csv(csv_path)
-tickers_df.columns = tickers_df.columns.str.strip().str.lower()
-tickers = tickers_df.iloc[:, 0].dropna().unique().tolist()
+    out_path = output_dir / f"{ticker.lower()}_momentum.csv"
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(f"# Post-earnings momentum dates for {ticker}\n")
+        df_total.to_csv(f, index=False)
 
-results = []
+        f.write("\n# Positive momentum dates (positive gap, intraday continuation)\n")
+        df_pos.to_csv(f, index=False)
 
-# 🔁 Analyze each ticker
-for i, ticker in enumerate(tickers, 1):
-    print(f"⏳ Analyzing {ticker} ({i}/{len(tickers)})...")
-    result = analyze_momentum(ticker, source=source)
-    if result:
-        results.append(result)
+        f.write("\n# Negative momentum dates (negative gap, intraday continuation)\n")
+        df_neg.to_csv(f, index=False)
 
-df = pd.DataFrame(results)
+        f.write("\n# Summary\n")
+        f.write(f"total_events,{result['total_events']}\n")
+        f.write(f"pct_momentum_total,{result['pct_momentum_total']}\n")
+        f.write(f"pct_momentum_pos,{result['pct_momentum_pos']}\n")
+        f.write(f"pct_momentum_neg,{result['pct_momentum_neg']}\n")
 
-# 📊 Rankings
-top30_total = df.sort_values(by="pct_momentum_total", ascending=False).head(30)[["ticker", "pct_momentum_total"]]
-top30_pos = df.sort_values(by="pct_momentum_pos", ascending=False).head(30)[["ticker", "pct_momentum_pos"]]
-top30_neg = df.sort_values(by="pct_momentum_neg", ascending=False).head(30)[["ticker", "pct_momentum_neg"]]
+    return out_path
 
-# 🕒 Save results
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-output_file = output_dir / f"top30_momentum_success_rate_{timestamp}.csv"
 
-with open(output_file, "w", encoding="utf-8") as f:
-    f.write("# TOP 30 TOTAL MOMENTUM (Earnings Days)\n")
-    top30_total.to_csv(f, index=False)
-    f.write("\n# TOP 30 POSITIVE MOMENTUM (Positive Open → Stronger Close)\n")
-    top30_pos.to_csv(f, index=False)
-    f.write("\n# TOP 30 NEGATIVE MOMENTUM (Negative Open → Weaker Close)\n")
-    top30_neg.to_csv(f, index=False)
+def _save_batch_rankings(results: list[dict], output_dir: Path) -> Path:
+    """
+    Save Top-30 rankings by total, positive, and negative momentum rate
+    to a single structured CSV file.
+    """
+    df = pd.DataFrame(results)
 
-print(f"\n📁 CSV saved to: {output_file}")
+    top30_total = df.nlargest(30, "pct_momentum_total")[["ticker", "pct_momentum_total"]]
+    top30_pos   = df.nlargest(30, "pct_momentum_pos")[["ticker", "pct_momentum_pos"]]
+    top30_neg   = df.nlargest(30, "pct_momentum_neg")[["ticker", "pct_momentum_neg"]]
+
+    ts       = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    out_path = output_dir / f"top30_momentum_success_rate_{ts}.csv"
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("# Top 30 by total momentum rate (all earnings events)\n")
+        top30_total.to_csv(f, index=False)
+        f.write("\n# Top 30 by positive momentum rate (positive gap days only)\n")
+        top30_pos.to_csv(f, index=False)
+        f.write("\n# Top 30 by negative momentum rate (negative gap days only)\n")
+        top30_neg.to_csv(f, index=False)
+
+    return out_path
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    args        = get_cli_args()
+    source      = args.source
+    api_key     = args.api_key
+    require_api = args.require_api
+
+    # Single-ticker mode
+    if args.ticker:
+        ticker = args.ticker.strip().upper()
+        result = analyze_momentum(ticker, source=source, api_key=api_key, require_api=require_api)
+        if result:
+            out_path = _save_single_ticker(result, OUTPUT_DIR)
+            logger.info("Saved to: %s", out_path)
+            print(
+                f"\n{ticker} momentum summary:\n"
+                f"  Total events:       {result['total_events']}\n"
+                f"  Momentum rate:      {result['pct_momentum_total']}%\n"
+                f"  Positive gap rate:  {result['pct_momentum_pos']}%\n"
+                f"  Negative gap rate:  {result['pct_momentum_neg']}%"
+            )
+        else:
+            logger.warning("No momentum data available for %s.", ticker)
+        return
+
+    # Batch mode - analyse all tickers from the universe CSV
+    if not DATA_CSV.exists():
+        logger.error("Ticker CSV not found at: %s", DATA_CSV)
+        sys.exit(1)
+
+    tickers = (
+        pd.read_csv(DATA_CSV)
+        .pipe(lambda df: df.rename(columns=str.lower))
+        .iloc[:, 0]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    results: list[dict] = []
+    for i, ticker in enumerate(tickers, 1):
+        logger.info("Analyzing %s (%d/%d)...", ticker, i, len(tickers))
+        result = analyze_momentum(ticker, source=source, api_key=api_key, require_api=require_api)
+        if result:
+            results.append(result)
+
+    if not results:
+        logger.error("No results collected.")
+        sys.exit(1)
+
+    out_path = _save_batch_rankings(results, OUTPUT_DIR)
+    logger.info("Batch rankings saved to: %s", out_path)
+
+
+if __name__ == "__main__":
+    main()

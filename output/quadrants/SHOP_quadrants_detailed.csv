@@ -1,5 +1,5 @@
-date,close_to_open_pct,open_to_close_pct,close_to_close_pct,scenario,conditional_sign,next_day_sign
-2025-02-11,-3.67,1.21,-2.51,neg_then_up,negative,up
-2025-05-08,0.5,-2.86,-2.37,pos_then_down,positive,down
-2025-08-06,-0.28,-2.19,-2.47,neg_then_down,negative,down
-2025-11-04,-0.86,2.11,1.23,neg_then_up,negative,up
+date,close_to_open_pct,close_to_close_pct,open_to_close_pct,scenario,gap_sign,intraday_sign
+2025-02-11,-3.67,-2.51,1.21,neg_then_up,negative,up
+2025-05-08,0.5,-2.37,-2.86,pos_then_down,positive,down
+2025-08-06,-0.28,-2.47,-2.19,neg_then_down,negative,down
+2025-11-04,-0.86,1.23,2.11,neg_then_up,negative,up

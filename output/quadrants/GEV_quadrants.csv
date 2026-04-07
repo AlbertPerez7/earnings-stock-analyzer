@@ -2,7 +2,7 @@
 # total_earnings=6, considered=6, excluded_c2o_zero=0, excluded_o2c_zero=0
 # sum_pct=100.0
 Scenario,Count,Denominator,Fraction,Percent,Dates
-"After +C→O, next day UP",3,6,3/6 = 50.00%,50.0,2025-10-22;2025-04-23;2024-10-23
-"After +C→O, next day DOWN",2,6,2/6 = 33.33%,33.33,2024-07-24;2024-04-25
-"After −C→O, next day UP",1,6,1/6 = 16.67%,16.67,2025-01-22
-"After −C→O, next day DOWN",0,6,0/6 = 0.00%,0.0,
+"After +C->O, next day UP",3,6,3/6 = 50.00%,50.0,2024-10-23;2025-04-23;2025-10-22
+"After +C->O, next day DOWN",2,6,2/6 = 33.33%,33.33,2024-04-25;2024-07-24
+"After -C->O, next day UP",1,6,1/6 = 16.67%,16.67,2025-01-22
+"After -C->O, next day DOWN",0,6,0/6 = 0.00%,0.0,
